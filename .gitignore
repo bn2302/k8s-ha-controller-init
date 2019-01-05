@@ -12,3 +12,8 @@
 *.out
 
 *.swp
+
+/bin/
+/test/tests.*
+/test/coverage.*
+/go.sum
