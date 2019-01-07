@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -150,4 +151,30 @@ func TestGetAutoscalingInstances(t *testing.T) {
 		t.Errorf("expect %v, got %v", e, a)
 	}
 
+}
+
+func increaseInstances(group *autoscaling.Group) {
+	time.Sleep(time.Second * 10)
+	group.Instances = append(
+		group.Instances,
+		&autoscaling.Instance{
+			InstanceId: stringAddress("i-543ads4"),
+		},
+	)
+}
+
+func TestWaitTillCapacitypReached(t *testing.T) {
+	mockSvc := newMockAutoScalingClient()
+	group, _ := getAutoscalingGroup(mockSvc, "")
+	capacity := int64(4)
+	group.DesiredCapacity = &capacity
+	go increaseInstances(group)
+	err := waitTillCapacitypReached(group, 1)
+	if err == nil {
+		t.Errorf("expect error, got %v", err)
+	}
+	err = waitTillCapacitypReached(group, 15)
+	if err != nil {
+		t.Errorf("expect no error, got %v", err)
+	}
 }

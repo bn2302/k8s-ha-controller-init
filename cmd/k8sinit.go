@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/autoscaling/autoscalingiface"
 	"github.com/spf13/cobra"
@@ -58,14 +59,24 @@ func getAutoscalingGroup(svc autoscalingiface.AutoScalingAPI, groupName string) 
 	return groups.AutoScalingGroups[0], nil
 }
 
-func waitTillCapacitypReached(group *autoscaling.Group) (bool, error) {
-	for {
-		if int64(len(group.Instances)) == *group.DesiredCapacity {
-			return true, nil
+func waitTillCapacitypReached(group *autoscaling.Group, timeout time.Duration) error {
+
+	c1 := make(chan bool, 1)
+	go func() {
+		for {
+			if int64(len(group.Instances)) == *group.DesiredCapacity {
+				c1 <- true
+				break
+			}
+			time.Sleep(time.Second * 5)
 		}
-		time.Sleep(time.Second * 30)
+	}()
+	select {
+	case <-c1:
+		return nil
+	case <-time.After(timeout * time.Second):
+		return errors.New("AutoScalingGroup did not reach capacity")
 	}
-	return false, errors.New("AutoScalingGroup did not reach capacity")
 }
 
 func getAutoscalingInstances(group *autoscaling.Group) []string {
@@ -85,28 +96,36 @@ func kubeUp(apiDNS string) bool {
 	return true
 }
 
-func runInit(cfgpth string) {
+func runInitController(bucket string) {
 }
 
-func runJoin(token string, cahash string) {
+func runJoinController(bucket string) {
 }
 
-func setupCluster(stdout io.Writer) {
-	//	cfgpth := "./kubeadm-config.yaml"
-	//	apiDNS := "apidns"
-	//	instance := getInstanceID()
-	//	instances := getInstancesInAutoScalingGroup()
-	//	for {
-	//		if kubeUp(apiDNS) {
-	//			break
-	//		}
-	//		if instances[0] == instance && !kubeUp(apiDNS) {
-	//			runInit(cfgpth)
-	//			//			copyCA(s3bkt)
-	//			return
-	//		}
-	//		time.Sleep(time.Second * 60)
-	//	}
+func deployController(stdout io.Writer) {
+	apiDNS := ""
+	bucket := ""
+	sess, _ := session.NewSession()
+	metaSvc := ec2metadata.New(sess)
+	instanceID, _ := getInstanceID(metaSvc)
+	region, _ := getRegion(metaSvc)
+	autoSvc := autoscaling.New(sess, aws.NewConfig().WithRegion(region))
+	groupName, _ := getAutoscalingGroupName(autoSvc, instanceID)
+	group, _ := getAutoscalingGroup(autoSvc, groupName)
+	for {
+		if !kubeUp(apiDNS) {
+			_ = waitTillCapacitypReached(group, 600)
+			if instanceID == getAutoscalingInstances(group)[0] {
+				runInitController(bucket)
+				return
+			}
+		}
+		if kubeUp(apiDNS) {
+			runJoinController(bucket)
+			return
+		}
+		time.Sleep(time.Second * 1)
+	}
 }
 
 // NewHAKubeadm returns a ha kubeadm command
@@ -124,7 +143,7 @@ func NewHAKubeadm(stdout io.Writer) *cobra.Command {
 		Short: "Deploy controller",
 		Long:  `Deploys a HA controller on AWS.`,
 		Run: func(cmd *cobra.Command, args []string) {
-			setupCluster(stdout)
+			deployController(stdout)
 		},
 	}
 	cmd.AddCommand(controllerCmd)
