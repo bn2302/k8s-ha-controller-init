@@ -10,6 +10,7 @@ var kubeAddress string
 var kubePort int
 var token string
 
+//RootCmd is the entry point to the application
 var RootCmd = &cobra.Command{
 	Use:           "k8sinit",
 	Short:         "Deploy a HA kubernetes",
@@ -17,6 +18,7 @@ var RootCmd = &cobra.Command{
 	SilenceErrors: true,
 }
 
+//Execute starts the root cmd
 func Execute() {
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)

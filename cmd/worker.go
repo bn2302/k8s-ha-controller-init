@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	. "github.com/bn2302/k8s-ha-controller-init/pkg"
+	"github.com/bn2302/k8s-ha-controller-init/pkg"
 	"github.com/spf13/cobra"
 	"os/exec"
 	"strconv"
@@ -18,7 +18,7 @@ func joinWorker(apiDNS string, apiPort int, token string) {
 
 func deployWorker(apiDNS string, apiPort int, token string) {
 	for {
-		if KubeUp(apiDNS, apiPort) {
+		if pkg.KubeUp(apiDNS, apiPort) {
 			joinWorker(apiDNS, apiPort, token)
 			return
 		}

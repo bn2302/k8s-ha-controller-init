@@ -19,18 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
 
-var caKeys = map[string]string{
-	"admin.conf":         "/etc/kubernetes/admin.conf",
-	"ca.crt":             "/etc/kubernetes/pki/ca.crt",
-	"ca.key":             "/etc/kubernetes/pki/ca.key",
-	"etcd-ca.crt":        "/etc/kubernetes/pki/etcd/ca.crt",
-	"etcd-ca.key":        "/etc/kubernetes/pki/etcd/ca.key",
-	"front-proxy-ca.crt": "/etc/kubernetes/pki/front-proxy-ca.crt",
-	"front-proxy-ca.key": "/etc/kubernetes/pki/front-proxy-ca.key",
-	"sa.key":             "/etc/kubernetes/pki/sa.key",
-	"sa.pub":             "/etc/kubernetes/pki/sa.pub",
-}
-
 //GetInstanceID returns the EC2 instance name
 func GetInstanceID(svc *ec2metadata.EC2Metadata) (string, error) {
 	doc, err := svc.GetInstanceIdentityDocument()
@@ -121,13 +109,13 @@ func KubeUp(apiDNS string, apiPort int) bool {
 		if retry > 2 {
 			return false
 		}
-		retry += 1
+		retry++
 		time.Sleep(time.Millisecond * 100)
 	}
 }
 
 //CaExistsOnS3 determines if the kube pki is on s3
-func CaExistsOnS3(svc s3iface.S3API, bucket string) bool {
+func ExistsOnS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) bool {
 
 	resp, _ := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
 
@@ -136,8 +124,8 @@ func CaExistsOnS3(svc s3iface.S3API, bucket string) bool {
 		mapObj[*item.Key] = true
 	}
 
-	for k := range caKeys {
-		if _, ok := mapObj[k]; !ok {
+	for f := range *keyPath {
+		if _, ok := mapObj[f]; !ok {
 			return false
 		}
 	}
@@ -146,9 +134,8 @@ func CaExistsOnS3(svc s3iface.S3API, bucket string) bool {
 }
 
 //DownloadCAFromS3 gets the kube pki from s3
-func DownloadCAFromS3(svc s3iface.S3API, bucket string) {
-	os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
-	for k, p := range caKeys {
+func DownloadFromS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
+	for k, p := range *keyPath {
 		result, _ := svc.GetObject(
 			&s3.GetObjectInput{
 				Bucket: aws.String(bucket),
@@ -162,8 +149,8 @@ func DownloadCAFromS3(svc s3iface.S3API, bucket string) {
 }
 
 //UploadCAToS3 puts the kube pki on s3
-func UploadCAToS3(svc s3iface.S3API, bucket string) {
-	for k, p := range caKeys {
+func UploadToS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
+	for k, p := range *keyPath {
 		dat, _ := ioutil.ReadFile(p)
 		svc.PutObject(
 			&s3.PutObjectInput{
