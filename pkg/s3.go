@@ -31,7 +31,7 @@ var caKeys = map[string]string{
 	"sa.pub":             "/etc/kubernetes/pki/sa.pub",
 }
 
-//GetInstanceID
+//GetInstanceID returns the EC2 instance name
 func GetInstanceID(svc *ec2metadata.EC2Metadata) (string, error) {
 	doc, err := svc.GetInstanceIdentityDocument()
 	if err != nil {
@@ -40,7 +40,7 @@ func GetInstanceID(svc *ec2metadata.EC2Metadata) (string, error) {
 	return doc.InstanceID, nil
 }
 
-//GetRegion
+//GetRegion returns the region the instance is running in
 func GetRegion(svc *ec2metadata.EC2Metadata) (string, error) {
 	doc, err := svc.GetInstanceIdentityDocument()
 	if err != nil {
@@ -49,7 +49,7 @@ func GetRegion(svc *ec2metadata.EC2Metadata) (string, error) {
 	return doc.Region, nil
 }
 
-//GetAutoscalingGroupName
+//GetAutoscalingGroupName gets the autoscaling group name the instance is belonging to
 func GetAutoscalingGroupName(svc autoscalingiface.AutoScalingAPI, instanceID string) (string, error) {
 	autoInstance, err := svc.DescribeAutoScalingInstances(
 		&autoscaling.DescribeAutoScalingInstancesInput{
@@ -64,7 +64,7 @@ func GetAutoscalingGroupName(svc autoscalingiface.AutoScalingAPI, instanceID str
 	return *autoInstance.AutoScalingInstances[0].AutoScalingGroupName, nil
 }
 
-//GetAutoscalingGroup
+//GetAutoscalingGroup gets the autoscaling group of the instance from the name of the autoscaling group
 func GetAutoscalingGroup(svc autoscalingiface.AutoScalingAPI, groupName string) (*autoscaling.Group, error) {
 	groups, err := svc.DescribeAutoScalingGroups(
 		&autoscaling.DescribeAutoScalingGroupsInput{
@@ -79,7 +79,7 @@ func GetAutoscalingGroup(svc autoscalingiface.AutoScalingAPI, groupName string) 
 	return groups.AutoScalingGroups[0], nil
 }
 
-//WaitTillCapacityReached
+//WaitTillCapacityReached waits until the autoscaling group is up and running
 func WaitTillCapacityReached(group *autoscaling.Group, timeout time.Duration) error {
 
 	c1 := make(chan bool, 1)
@@ -100,7 +100,7 @@ func WaitTillCapacityReached(group *autoscaling.Group, timeout time.Duration) er
 	}
 }
 
-//GetAutoscalingInstances
+//GetAutoscalingInstances gets all instances in an autoscaling group
 func GetAutoscalingInstances(group *autoscaling.Group) []string {
 	instances := make([]string, len(group.Instances))
 	for i, v := range group.Instances {
@@ -110,7 +110,7 @@ func GetAutoscalingInstances(group *autoscaling.Group) []string {
 	return instances
 }
 
-//KubeUp
+//KubeUp checks if kubernetes is running
 func KubeUp(apiDNS string, apiPort int) bool {
 	retry := 0
 	for {
@@ -126,7 +126,7 @@ func KubeUp(apiDNS string, apiPort int) bool {
 	}
 }
 
-//CaExistsOnS3
+//CaExistsOnS3 determines if the kube pki is on s3
 func CaExistsOnS3(svc s3iface.S3API, bucket string) bool {
 
 	resp, _ := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
@@ -145,7 +145,7 @@ func CaExistsOnS3(svc s3iface.S3API, bucket string) bool {
 	return true
 }
 
-//DownloadCAFromS3
+//DownloadCAFromS3 gets the kube pki from s3
 func DownloadCAFromS3(svc s3iface.S3API, bucket string) {
 	os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
 	for k, p := range caKeys {
@@ -161,7 +161,7 @@ func DownloadCAFromS3(svc s3iface.S3API, bucket string) {
 	}
 }
 
-//UploadCAToS3
+//UploadCAToS3 puts the kube pki on s3
 func UploadCAToS3(svc s3iface.S3API, bucket string) {
 	for k, p := range caKeys {
 		dat, _ := ioutil.ReadFile(p)
