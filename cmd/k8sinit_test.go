@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -176,5 +177,19 @@ func TestWaitTillCapacitypReached(t *testing.T) {
 	err = waitTillCapacitypReached(group, 15)
 	if err != nil {
 		t.Errorf("expect no error, got %v", err)
+	}
+}
+
+func TestKubeUp(t *testing.T) {
+	if kubeUp("", 6443) {
+		t.Errorf("expect no error, tcp server should be down")
+	}
+	l, err := net.Listen("tcp", ":6443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	if !kubeUp("", 6443) {
+		t.Errorf("expect no error, tcp server should be up")
 	}
 }
