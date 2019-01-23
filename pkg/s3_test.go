@@ -1,4 +1,4 @@
-package cmd
+package pkg
 
 import (
 	"net"
@@ -57,7 +57,7 @@ func newMockAutoScalingClient() *mockAutoScalingClient {
 	c := mockAutoScalingClient{}
 	c.describeAutoScalingInstancesOutput = &autoscaling.DescribeAutoScalingInstancesOutput{
 		AutoScalingInstances: []*autoscaling.InstanceDetails{
-			&autoscaling.InstanceDetails{
+			{
 				AutoScalingGroupName: stringAddress("auto-test-group"),
 			},
 		},
@@ -65,15 +65,15 @@ func newMockAutoScalingClient() *mockAutoScalingClient {
 	}
 	c.describeAutoScalingGroupsOutput = &autoscaling.DescribeAutoScalingGroupsOutput{
 		AutoScalingGroups: []*autoscaling.Group{
-			&autoscaling.Group{
+			{
 				Instances: []*autoscaling.Instance{
-					&autoscaling.Instance{
+					{
 						InstanceId: stringAddress("i-143adsf"),
 					},
-					&autoscaling.Instance{
+					{
 						InstanceId: stringAddress("i-423adsf"),
 					},
-					&autoscaling.Instance{
+					{
 						InstanceId: stringAddress("i-143ads4"),
 					},
 				},
@@ -101,7 +101,7 @@ func TestGetInstanceID(t *testing.T) {
 	)
 	defer server.Close()
 	c := ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")})
-	id, err := getInstanceID(c)
+	id, err := GetInstanceID(c)
 	if err != nil {
 		t.Errorf("expect no error, got %v", err)
 	}
@@ -116,7 +116,7 @@ func TestGetRegion(t *testing.T) {
 	)
 	defer server.Close()
 	c := ec2metadata.New(unit.Session, &aws.Config{Endpoint: aws.String(server.URL + "/latest")})
-	id, err := getRegion(c)
+	id, err := GetRegion(c)
 	if err != nil {
 		t.Errorf("expect no error, got %v", err)
 	}
@@ -127,7 +127,7 @@ func TestGetRegion(t *testing.T) {
 
 func TestGetAutoscalingGroupName(t *testing.T) {
 	mockSvc := newMockAutoScalingClient()
-	groupName, err := getAutoscalingGroupName(mockSvc, "i-9242867120lbndef1")
+	groupName, err := GetAutoscalingGroupName(mockSvc, "i-9242867120lbndef1")
 	if err != nil {
 		t.Errorf("expect no error, got %v", err)
 	}
@@ -138,7 +138,7 @@ func TestGetAutoscalingGroupName(t *testing.T) {
 
 func TestGetAutoscalingGroup(t *testing.T) {
 	mockSvc := newMockAutoScalingClient()
-	_, err := getAutoscalingGroup(mockSvc, "")
+	_, err := GetAutoscalingGroup(mockSvc, "")
 	if err != nil {
 		t.Errorf("expect no error, got %v", err)
 	}
@@ -146,8 +146,8 @@ func TestGetAutoscalingGroup(t *testing.T) {
 
 func TestGetAutoscalingInstances(t *testing.T) {
 	mockSvc := newMockAutoScalingClient()
-	group, _ := getAutoscalingGroup(mockSvc, "")
-	instances := getAutoscalingInstances(group)
+	group, _ := GetAutoscalingGroup(mockSvc, "")
+	instances := GetAutoscalingInstances(group)
 	if e, a := instances, []string{"i-143ads4", "i-143adsf", "i-423adsf"}; !reflect.DeepEqual(e, a) {
 		t.Errorf("expect %v, got %v", e, a)
 	}
@@ -166,22 +166,22 @@ func increaseInstances(group *autoscaling.Group) {
 
 func TestWaitTillCapacitypReached(t *testing.T) {
 	mockSvc := newMockAutoScalingClient()
-	group, _ := getAutoscalingGroup(mockSvc, "")
+	group, _ := GetAutoscalingGroup(mockSvc, "")
 	capacity := int64(4)
 	group.DesiredCapacity = &capacity
 	go increaseInstances(group)
-	err := waitTillCapacitypReached(group, 1)
+	err := WaitTillCapacityReached(group, 1)
 	if err == nil {
 		t.Errorf("expect error, got %v", err)
 	}
-	err = waitTillCapacitypReached(group, 15)
+	err = WaitTillCapacityReached(group, 15)
 	if err != nil {
 		t.Errorf("expect no error, got %v", err)
 	}
 }
 
 func TestKubeUp(t *testing.T) {
-	if kubeUp("", 6443) {
+	if KubeUp("", 6443) {
 		t.Errorf("expect no error, tcp server should be down")
 	}
 	l, err := net.Listen("tcp", ":6443")
@@ -189,7 +189,7 @@ func TestKubeUp(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	if !kubeUp("", 6443) {
+	if !KubeUp("", 6443) {
 		t.Errorf("expect no error, tcp server should be up")
 	}
 }
