@@ -114,7 +114,7 @@ func KubeUp(apiDNS string, apiPort int) bool {
 	}
 }
 
-//CaExistsOnS3 determines if the kube pki is on s3
+//ExistsOnS3 determines if the kube pki is on s3
 func ExistsOnS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) bool {
 
 	resp, _ := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
@@ -133,7 +133,7 @@ func ExistsOnS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) bo
 	return true
 }
 
-//DownloadCAFromS3 gets the kube pki from s3
+//DownloadFromS3 gets the kube pki from s3
 func DownloadFromS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
 	for k, p := range *keyPath {
 		result, _ := svc.GetObject(
@@ -148,7 +148,7 @@ func DownloadFromS3(svc s3iface.S3API, bucket string, keyPath *map[string]string
 	}
 }
 
-//UploadCAToS3 puts the kube pki on s3
+//UploadToS3 puts the kube pki on s3
 func UploadToS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
 	for k, p := range *keyPath {
 		dat, _ := ioutil.ReadFile(p)
