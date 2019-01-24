@@ -5,7 +5,7 @@ go:
 
 
 script:
-  - CGO_ENABLED=0 go build
+  - make all
   - ls
 
 deploy:
