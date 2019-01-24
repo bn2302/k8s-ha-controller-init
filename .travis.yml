@@ -4,3 +4,14 @@ go:
   - "1.11"
 
 
+script:
+  - CGO_ENABLED=0 go build
+  - ls
+
+deploy:
+  provider: releases
+  api_key: $TOKEN
+  file: "./bin/k8init"
+  skip_cleanup: true
+  on:
+    tags: false

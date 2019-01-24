@@ -133,31 +133,41 @@ func ExistsOnS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) bo
 	return true
 }
 
-//DownloadFromS3 gets the kube pki from s3
-func DownloadFromS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
+//DownloadMapFromS3 gets a map describing keys from s3 and downloads them to a path
+func DownloadMapFromS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
 	for k, p := range *keyPath {
-		result, _ := svc.GetObject(
-			&s3.GetObjectInput{
-				Bucket: aws.String(bucket),
-				Key:    aws.String(k),
-			},
-		)
-		outfile, _ := os.Create(p)
-		io.Copy(outfile, result.Body)
-		outfile.Close()
+		DownloadFromS3(svc, bucket, k, p)
 	}
 }
 
-//UploadToS3 puts the kube pki on s3
-func UploadToS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
+//DownloadFromS3 gets the kube pki from s3
+func DownloadFromS3(svc s3iface.S3API, bucket string, key string, path string) {
+	result, _ := svc.GetObject(
+		&s3.GetObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		},
+	)
+	outfile, _ := os.Create(path)
+	defer outfile.Close()
+	io.Copy(outfile, result.Body)
+}
+
+//UploadMapToS3 puts a map of files to S3
+func UploadMapToS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
 	for k, p := range *keyPath {
-		dat, _ := ioutil.ReadFile(p)
-		svc.PutObject(
-			&s3.PutObjectInput{
-				Body:   bytes.NewReader(dat),
-				Bucket: aws.String(bucket),
-				Key:    aws.String(k),
-			},
-		)
+		UploadToS3(svc, bucket, k, p)
 	}
+}
+
+//UploadToS3 puts a file to s3
+func UploadToS3(svc s3iface.S3API, bucket string, key string, path string) {
+	dat, _ := ioutil.ReadFile(path)
+	svc.PutObject(
+		&s3.PutObjectInput{
+			Body:   bytes.NewReader(dat),
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		},
+	)
 }
