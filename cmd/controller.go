@@ -9,6 +9,7 @@ import (
 	"github.com/bn2302/k8s-ha-controller-init/pkg"
 	"github.com/spf13/cobra"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -54,20 +55,51 @@ func joinController(apiDNS string, apiPort int) {
 }
 
 func deployController(apiDNS string, apiPort int, bucket string) {
-	sess, _ := session.NewSession()
+	sess, err := session.NewSession()
+	if err != nil {
+		log.Fatalln("Could not initialize aws session: " + err.Error())
+	} else {
+		log.Println("AWS Session started")
+	}
 	metaSvc := ec2metadata.New(sess)
-	instanceID, _ := pkg.GetInstanceID(metaSvc)
-	region, _ := pkg.GetRegion(metaSvc)
+	instanceID, err := pkg.GetInstanceID(metaSvc)
+	if err != nil {
+		log.Fatalln("Could not get instance id: " + err.Error())
+	} else {
+		log.Println("Got instance ec2 instance id: " + instanceID)
+	}
+
+	region, err := pkg.GetRegion(metaSvc)
+	if err != nil {
+		log.Fatalln("Could not get the region: " + err.Error())
+	} else {
+		log.Println("Got the region: " + region)
+	}
 	autoSvc := autoscaling.New(sess, aws.NewConfig().WithRegion(region))
 	s3Svc := s3.New(sess, aws.NewConfig().WithRegion(region))
-	groupName, _ := pkg.GetAutoscalingGroupName(autoSvc, instanceID)
-	group, _ := pkg.GetAutoscalingGroup(autoSvc, groupName)
+	groupName, err := pkg.GetAutoscalingGroupName(autoSvc, instanceID)
+	if err != nil {
+		log.Fatalln("Could not get the autoscaling group name: " + err.Error())
+	} else {
+		log.Println("Got the autoscaling group name: " + groupName)
+	}
+	group, err := pkg.GetAutoscalingGroup(autoSvc, groupName)
+	if err != nil {
+		log.Fatalln("Could not get the autoscaling group : " + err.Error())
+	}
+
 	for {
 		if !pkg.KubeUp(apiDNS, apiPort) {
-			_ = pkg.WaitTillCapacityReached(group, 600)
+			err = pkg.WaitTillCapacityReached(group, 600)
+			if err != nil {
+				log.Fatalln("Capacity of autoscaling group was not reached : " + err.Error())
+			}
 			if instanceID == pkg.GetAutoscalingInstances(group)[0] {
 				if pkg.ExistsOnS3(s3Svc, bucket, &caKeys) {
-					os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
+					err := os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
+					if err != nil {
+						log.Fatalln("Could not create directory : " + err.Error())
+					}
 					pkg.DownloadMapFromS3(s3Svc, bucket, &caKeys)
 				}
 				pkg.DownloadFromS3(s3Svc, bucket, "kubeadm-cfg-init.yaml", clusterConfig["kubeadm-cfg-init.yaml"])

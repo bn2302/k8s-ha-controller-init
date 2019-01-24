@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"log"
 	"os"
 )
 
@@ -25,8 +26,8 @@ var caKeys = map[string]string{
 
 var clusterConfig = map[string]string{
 	"cluster-info.yaml":     "/tmp/cluster-info.yaml",
-	"kubeadm-cfg-init.yaml": "/tmp/cluster-info.yaml",
-	"kubeadm-cfg-join.yaml": "/tmp/cluster-info.yaml",
+	"kubeadm-cfg-init.yaml": "/tmp/cluster-cfg.yaml",
+	"kubeadm-cfg-join.yaml": "/tmp/cluster-join.yaml",
 }
 
 //RootCmd is the entry point to the application
@@ -46,6 +47,7 @@ func Execute() {
 }
 
 func init() {
+	log.SetOutput(os.Stdout)
 	RootCmd.PersistentFlags().StringVarP(&kubeAddress, "name", "n", "", "Address of the Kubernetes API Server")
 	RootCmd.PersistentFlags().IntVarP(&kubePort, "port", "p", 6443, "Port of the Kubernetes API Server")
 	RootCmd.PersistentFlags().StringVarP(&bucket, "bucket", "b", "", "S3Bucket for the Kubernetes Config")
