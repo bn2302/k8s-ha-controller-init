@@ -181,8 +181,12 @@ func deployController(apiDNS string, apiPort int, bucket string) {
 		log.Fatalln("Could not get the autoscaling group : " + err.Error())
 	}
 
-	log.Println("Start deployment loop")
+	if pkg.KubeUp("127.0.0.1", apiPort) {
+		log.Println("Kubernetes is already running")
+		return
+	}
 
+	log.Println("Start deployment loop")
 	for {
 		kubeStatus := pkg.KubeUp(apiDNS, apiPort)
 		if kubeStatus {
@@ -198,6 +202,7 @@ func deployController(apiDNS string, apiPort int, bucket string) {
 			}
 			if instanceID == pkg.GetAutoscalingInstances(group)[0] {
 				initController(s3Svc, bucket)
+				return
 			}
 		}
 
