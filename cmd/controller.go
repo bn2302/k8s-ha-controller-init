@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -29,13 +30,28 @@ func createController() {
 		log.Fatalln("Couldn't run kubeadm: " + kerr.Error())
 	}
 	log.Println("Deploy weavnet")
+
+	out, kverr := exec.Command(
+		"kubectl",
+		"--kubeconfig",
+		"/etc/kubernetes/admin.conf",
+		"version",
+	).Output()
+	if kverr != nil {
+		log.Fatalln("Couldn't get kubernetes version: " + kverr.Error())
+	}
+	log.Println(out)
+
+	bout := base64.StdEncoding.EncodeToString(out)
+
+	log.Println("https://cloud.weave.works/k8s/net?k8s-version=" + bout)
 	werr := exec.Command(
 		"kubectl",
 		"apply",
 		"--kubeconfig",
 		"/etc/kubernetes/admin.conf",
 		"-f",
-		"\"https://cloud.weave.works/k8s/net?k8s-version=$(kubectl --kubeconfig /etc/kubernetes/admin.conf version | base64 | tr -d '\n')\"",
+		"https://cloud.weave.works/k8s/net?k8s-version="+bout,
 	).Run()
 	if werr != nil {
 		log.Fatalln("Couldn't deploy weavenet: " + kerr.Error())
