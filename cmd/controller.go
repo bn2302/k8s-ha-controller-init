@@ -24,8 +24,6 @@ func createController() {
 		"init",
 		"--config",
 		clusterConfig["kubeadm-cfg-init.yaml"],
-		"--skip-phases",
-		"preflight",
 	).Run()
 	if kerr != nil {
 		log.Fatalln("Couldn't run kubeadm: " + kerr.Error())
@@ -148,6 +146,8 @@ func deployController(apiDNS string, apiPort int, bucket string) {
 	if err != nil {
 		log.Fatalln("Could not get the autoscaling group : " + err.Error())
 	}
+
+	log.Println("Start deployment loop")
 
 	for {
 		kubeStatus := pkg.KubeUp(apiDNS, apiPort)
