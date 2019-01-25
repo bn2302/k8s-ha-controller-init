@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"sort"
@@ -115,9 +116,12 @@ func KubeUp(apiDNS string, apiPort int) bool {
 }
 
 //ExistsOnS3 determines if the kube pki is on s3
-func ExistsOnS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) bool {
+func ExistsOnS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) (bool, error) {
 
-	resp, _ := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
+	resp, err := svc.ListObjects(&s3.ListObjectsInput{Bucket: aws.String(bucket)})
+	if err != nil {
+		return false, err
+	}
 
 	mapObj := map[string]bool{}
 	for _, item := range resp.Contents {
@@ -126,48 +130,78 @@ func ExistsOnS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) bo
 
 	for f := range *keyPath {
 		if _, ok := mapObj[f]; !ok {
-			return false
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 //DownloadMapFromS3 gets a map describing keys from s3 and downloads them to a path
-func DownloadMapFromS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
+func DownloadMapFromS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) error {
 	for k, p := range *keyPath {
-		DownloadFromS3(svc, bucket, k, p)
+		err := DownloadFromS3(svc, bucket, k, p)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 //DownloadFromS3 gets the kube pki from s3
-func DownloadFromS3(svc s3iface.S3API, bucket string, key string, path string) {
-	result, _ := svc.GetObject(
+func DownloadFromS3(svc s3iface.S3API, bucket string, key string, path string) error {
+	result, err := svc.GetObject(
 		&s3.GetObjectInput{
 			Bucket: aws.String(bucket),
 			Key:    aws.String(key),
 		},
 	)
-	outfile, _ := os.Create(path)
-	defer outfile.Close()
-	io.Copy(outfile, result.Body)
+	if err != nil {
+		return err
+	}
+	outfile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := outfile.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+	_, err = io.Copy(outfile, result.Body)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 //UploadMapToS3 puts a map of files to S3
-func UploadMapToS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) {
+func UploadMapToS3(svc s3iface.S3API, bucket string, keyPath *map[string]string) error {
 	for k, p := range *keyPath {
-		UploadToS3(svc, bucket, k, p)
+		err := UploadToS3(svc, bucket, k, p)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 //UploadToS3 puts a file to s3
-func UploadToS3(svc s3iface.S3API, bucket string, key string, path string) {
-	dat, _ := ioutil.ReadFile(path)
-	svc.PutObject(
+func UploadToS3(svc s3iface.S3API, bucket string, key string, path string) error {
+	dat, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	_, err2 := svc.PutObject(
 		&s3.PutObjectInput{
 			Body:   bytes.NewReader(dat),
 			Bucket: aws.String(bucket),
 			Key:    aws.String(key),
 		},
 	)
+	if err2 != nil {
+		return err
+	}
+	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/bn2302/k8s-ha-controller-init/pkg"
 	"github.com/spf13/cobra"
 	"io/ioutil"
@@ -43,7 +44,11 @@ func createController() {
 	ioutil.WriteFile(clusterConfig["cluster-info.yaml"], clusterInfoData, 0644)
 }
 
-func joinController(apiDNS string, apiPort int) {
+func joinController(svc s3iface.S3API, apiDNS string, apiPort int, bucket string) {
+	os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
+	pkg.DownloadFromS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
+	pkg.DownloadFromS3(svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"])
+	pkg.DownloadMapFromS3(svc, bucket, &caKeys)
 	exec.Command(
 		"kubeadm",
 		"join",
@@ -52,6 +57,40 @@ func joinController(apiDNS string, apiPort int) {
 		clusterConfig["kubeadm-cfg-join.yaml"],
 		"--experimental-control-plane",
 	).Run()
+}
+
+func initController(svc s3iface.S3API, bucket string) {
+	if val, serr := pkg.ExistsOnS3(svc, bucket, &caKeys); serr != nil {
+		log.Fatalln("Could not check if package exists: " + serr.Error())
+	} else if val {
+		merr := os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
+		if merr != nil {
+			log.Fatalln("Could not create directory : " + merr.Error())
+		}
+		derr := pkg.DownloadMapFromS3(svc, bucket, &caKeys)
+		if derr != nil {
+			log.Fatalln("Download create directory : " + derr.Error())
+		}
+	}
+	derr := pkg.DownloadFromS3(svc, bucket, "kubeadm-cfg-init.yaml", clusterConfig["kubeadm-cfg-init.yaml"])
+	if derr != nil {
+		log.Fatalln("Could not download from S3 : " + derr.Error())
+	}
+	createController()
+	if val, serr := pkg.ExistsOnS3(svc, bucket, &caKeys); serr != nil {
+		log.Fatalln("Could not check if package exists: " + serr.Error())
+	} else if !val {
+		uerr := pkg.UploadMapToS3(svc, bucket, &caKeys)
+		if uerr != nil {
+			log.Fatalln("Could not upload pki to S3 : " + uerr.Error())
+		}
+	}
+
+	uerr := pkg.UploadToS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
+	if uerr != nil {
+		log.Fatalln("Could not upload clouser info to S3 : " + uerr.Error())
+
+	}
 }
 
 func deployController(apiDNS string, apiPort int, bucket string) {
@@ -89,34 +128,24 @@ func deployController(apiDNS string, apiPort int, bucket string) {
 	}
 
 	for {
-		if !pkg.KubeUp(apiDNS, apiPort) {
+		kubeStatus := pkg.KubeUp(apiDNS, apiPort)
+
+		if !kubeStatus {
 			err = pkg.WaitTillCapacityReached(group, 600)
 			if err != nil {
 				log.Fatalln("Capacity of autoscaling group was not reached : " + err.Error())
 			}
 			if instanceID == pkg.GetAutoscalingInstances(group)[0] {
-				if pkg.ExistsOnS3(s3Svc, bucket, &caKeys) {
-					err := os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
-					if err != nil {
-						log.Fatalln("Could not create directory : " + err.Error())
-					}
-					pkg.DownloadMapFromS3(s3Svc, bucket, &caKeys)
-				}
-				pkg.DownloadFromS3(s3Svc, bucket, "kubeadm-cfg-init.yaml", clusterConfig["kubeadm-cfg-init.yaml"])
-				createController()
-				if !pkg.ExistsOnS3(s3Svc, bucket, &caKeys) {
-					pkg.UploadMapToS3(s3Svc, bucket, &caKeys)
-				}
-				pkg.UploadToS3(s3Svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
-				return
+				initController(s3Svc, bucket)
 			}
 		}
-		if pkg.KubeUp(apiDNS, apiPort) && pkg.ExistsOnS3(s3Svc, bucket, &caKeys) {
-			os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
-			pkg.DownloadFromS3(s3Svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
-			pkg.DownloadFromS3(s3Svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"])
-			pkg.DownloadMapFromS3(s3Svc, bucket, &caKeys)
-			joinController(apiDNS, apiPort)
+
+		caExists, err := pkg.ExistsOnS3(s3Svc, bucket, &caKeys)
+		if err != nil {
+			log.Fatalln("Could not fetch pki status from S3: " + err.Error())
+		}
+		if kubeStatus && caExists {
+			joinController(s3Svc, apiDNS, apiPort, bucket)
 			return
 		}
 		time.Sleep(time.Second * 1)
@@ -128,6 +157,7 @@ var controllerCmd = &cobra.Command{
 	Short: "Deploy controller",
 	Long:  `Deploys a HA controller on AWS.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		log.Println("Start provisioning of the controller")
 		deployController(kubeAddress, kubePort, bucket)
 	},
 }
