@@ -62,11 +62,23 @@ func createController() {
 }
 
 func joinController(svc s3iface.S3API, apiDNS string, apiPort int, bucket string) {
-	os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
-	pkg.DownloadFromS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
-	pkg.DownloadFromS3(svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"])
-	pkg.DownloadMapFromS3(svc, bucket, &caKeys)
-	exec.Command(
+	merr := os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
+	if merr != nil {
+		log.Fatalln("Could not create directory : " + merr.Error())
+	}
+	dperr := pkg.DownloadMapFromS3(svc, bucket, &caKeys)
+	if dperr != nil {
+		log.Fatalln("Download create directory : " + dperr.Error())
+	}
+	cerr := pkg.DownloadFromS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
+	if cerr != nil {
+		log.Fatalln("Download cluster info failed : " + cerr.Error())
+	}
+	kerr := pkg.DownloadFromS3(svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"])
+	if kerr != nil {
+		log.Fatalln("Download kubeconfig failed : " + kerr.Error())
+	}
+	err := exec.Command(
 		"kubeadm",
 		"join",
 		apiDNS+":"+strconv.Itoa(apiPort),
@@ -74,6 +86,9 @@ func joinController(svc s3iface.S3API, apiDNS string, apiPort int, bucket string
 		clusterConfig["kubeadm-cfg-join.yaml"],
 		"--experimental-control-plane",
 	).Run()
+	if err != nil {
+		log.Fatalln("Kubeadm join failed: " + err.Error())
+	}
 }
 
 func initController(svc s3iface.S3API, bucket string) {
