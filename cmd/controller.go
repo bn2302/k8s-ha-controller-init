@@ -18,6 +18,25 @@ import (
 	"time"
 )
 
+func getKubeVersion() ([]byte, error) {
+	retry := 0
+	for {
+		out, kverr := exec.Command(
+			"kubectl",
+			"--kubeconfig",
+			"/etc/kubernetes/admin.conf",
+			"version",
+		).Output()
+		if retry > 10 && kverr != nil {
+			return nil, kverr
+		} else if kverr == nil {
+			return out, nil
+		}
+		retry++
+		time.Sleep(time.Second * 1)
+	}
+}
+
 func createController() {
 	log.Println("Start kubeadm init")
 	kerr := exec.Command(
@@ -31,17 +50,11 @@ func createController() {
 	}
 	log.Println("Deploy weavnet")
 
-	out, kverr := exec.Command(
-		"kubectl",
-		"--kubeconfig",
-		"/etc/kubernetes/admin.conf",
-		"version",
-	).Output()
+	out, kverr := getKubeVersion()
 	if kverr != nil {
 		log.Fatalln("Couldn't get kubernetes version: " + kverr.Error())
 	}
 	log.Println(out)
-
 	bout := base64.StdEncoding.EncodeToString(out)
 
 	log.Println("https://cloud.weave.works/k8s/net?k8s-version=" + bout)
