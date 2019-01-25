@@ -32,15 +32,18 @@ func createController() {
 	werr := exec.Command(
 		"kubectl",
 		"apply",
+		"--kubeconfig",
+		"/etc/kubernetes/admin.conf",
 		"-f",
-		"\"https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')\"",
+		"\"https://cloud.weave.works/k8s/net?k8s-version=$(kubectl --kubeconfig /etc/kubernetes/admin.conf version | base64 | tr -d '\n')\"",
 	).Run()
 	if werr != nil {
 		log.Fatalln("Couldn't deploy weavenet: " + kerr.Error())
 	}
 	clusterInfoData, cerr := exec.Command(
 		"kubectl",
-		"--kubeconfig=/etc/kubernetes/admin.conf",
+		"--kubeconfig",
+		"/etc/kubernetes/admin.conf",
 		"get",
 		"cm",
 		"-n",
