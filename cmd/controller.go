@@ -18,19 +18,29 @@ import (
 )
 
 func createController() {
-	exec.Command(
+	log.Println("Start kubeadm init")
+	kerr := exec.Command(
 		"kubeadm",
 		"init",
 		"--config",
 		clusterConfig["kubeadm-cfg-init.yaml"],
+		"--skip-phases",
+		"preflight",
 	).Run()
-	exec.Command(
+	if kerr != nil {
+		log.Fatalln("Couldn't run kubeadm: " + kerr.Error())
+	}
+	log.Println("Deploy weavnet")
+	werr := exec.Command(
 		"kubectl",
 		"apply",
 		"-f",
 		"\"https://cloud.weave.works/k8s/net?k8s-version=$(kubectl version | base64 | tr -d '\n')\"",
 	).Run()
-	clusterInfoData, _ := exec.Command(
+	if werr != nil {
+		log.Fatalln("Couldn't deploy weavenet: " + kerr.Error())
+	}
+	clusterInfoData, cerr := exec.Command(
 		"kubectl",
 		"--kubeconfig=/etc/kubernetes/admin.conf",
 		"get",
@@ -41,7 +51,13 @@ func createController() {
 		"-o",
 		"jsonpath={.data.kubeconfig}",
 	).Output()
-	ioutil.WriteFile(clusterConfig["cluster-info.yaml"], clusterInfoData, 0644)
+	if cerr != nil {
+		log.Fatalln("Couldn't get cluster info: " + cerr.Error())
+	}
+	ferr := ioutil.WriteFile(clusterConfig["cluster-info.yaml"], clusterInfoData, 0644)
+	if ferr != nil {
+		log.Fatalln("Couldn't write cluster info: " + ferr.Error())
+	}
 }
 
 func joinController(svc s3iface.S3API, apiDNS string, apiPort int, bucket string) {
@@ -63,32 +79,38 @@ func initController(svc s3iface.S3API, bucket string) {
 	if val, serr := pkg.ExistsOnS3(svc, bucket, &caKeys); serr != nil {
 		log.Fatalln("Could not check if package exists: " + serr.Error())
 	} else if val {
+		log.Println("Pki does exist download it")
 		merr := os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
 		if merr != nil {
 			log.Fatalln("Could not create directory : " + merr.Error())
 		}
-		derr := pkg.DownloadMapFromS3(svc, bucket, &caKeys)
-		if derr != nil {
-			log.Fatalln("Download create directory : " + derr.Error())
+		dperr := pkg.DownloadMapFromS3(svc, bucket, &caKeys)
+		if dperr != nil {
+			log.Fatalln("Download create directory : " + dperr.Error())
 		}
+	} else {
+		log.Println("Pki doesn't  exist create ite during kube setup")
 	}
-	derr := pkg.DownloadFromS3(svc, bucket, "kubeadm-cfg-init.yaml", clusterConfig["kubeadm-cfg-init.yaml"])
-	if derr != nil {
-		log.Fatalln("Could not download from S3 : " + derr.Error())
+
+	dcerr := pkg.DownloadFromS3(svc, bucket, "kubeadm-cfg-init.yaml", clusterConfig["kubeadm-cfg-init.yaml"])
+	if dcerr != nil {
+		log.Fatalln("Could not download from S3 : " + dcerr.Error())
+	} else {
+		log.Println("Downloaded kubeadm.cfg")
 	}
+
 	createController()
 	if val, serr := pkg.ExistsOnS3(svc, bucket, &caKeys); serr != nil {
 		log.Fatalln("Could not check if package exists: " + serr.Error())
 	} else if !val {
-		uerr := pkg.UploadMapToS3(svc, bucket, &caKeys)
-		if uerr != nil {
-			log.Fatalln("Could not upload pki to S3 : " + uerr.Error())
+		uperr := pkg.UploadMapToS3(svc, bucket, &caKeys)
+		if uperr != nil {
+			log.Fatalln("Could not upload pki to S3 : " + uperr.Error())
 		}
 	}
-
-	uerr := pkg.UploadToS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
-	if uerr != nil {
-		log.Fatalln("Could not upload clouser info to S3 : " + uerr.Error())
+	ucerr := pkg.UploadToS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
+	if ucerr != nil {
+		log.Fatalln("Could not upload clouser info to S3 : " + ucerr.Error())
 
 	}
 }
@@ -129,6 +151,11 @@ func deployController(apiDNS string, apiPort int, bucket string) {
 
 	for {
 		kubeStatus := pkg.KubeUp(apiDNS, apiPort)
+		if kubeStatus {
+			log.Println("k8s is running")
+		} else {
+			log.Println("k8s isn't running")
+		}
 
 		if !kubeStatus {
 			err = pkg.WaitTillCapacityReached(group, 600)
