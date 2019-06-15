@@ -156,7 +156,12 @@ func initController(svc s3iface.S3API, bucket string) {
 	}
 	ucerr := pkg.UploadToS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
 	if ucerr != nil {
-		log.Fatalln("Could not upload clouser info to S3 : " + ucerr.Error())
+		log.Fatalln("Could not upload cluster info to S3 : " + ucerr.Error())
+
+	}
+	ukerr := pkg.UploadToS3(svc, bucket, "kubeconig.json", "/etc/kubernetes/admin.conf")
+	if ukerr != nil {
+		log.Fatalln("Could not upload kube config to S3 : " + ukerr.Error())
 
 	}
 }
@@ -216,6 +221,7 @@ func deployController(apiDNS string, apiPort int, bucket string) {
 			}
 			if instanceID == pkg.GetAutoscalingInstances(group)[0] {
 				initController(s3Svc, bucket)
+
 				return
 			}
 		}
