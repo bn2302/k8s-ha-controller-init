@@ -13,14 +13,15 @@ import (
 )
 
 func joinWorker(apiDNS string, apiPort int) {
-	err := exec.Command(
+	joinCmd := exec.Command(
 		"kubeadm",
 		"join",
 		apiDNS+":"+strconv.Itoa(apiPort),
 		"--config",
 		clusterConfig["kubeadm-cfg-join.yaml"],
-	).Run()
-	if err != nil {
+	)
+
+	if err := joinCmd.Run(); err != nil {
 		log.Fatalln("Failed to join worker: " + err.Error())
 	}
 }
@@ -44,13 +45,11 @@ func deployWorker(apiDNS string, apiPort int) {
 	log.Println("Start deployment loop")
 	for {
 		if pkg.KubeUp(apiDNS, apiPort) {
-			ierr := pkg.DownloadFromS3(s3Svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
-			if ierr != nil {
-				log.Fatalln("Failed retrieving cluster info: " + ierr.Error())
+			if err := pkg.DownloadFromS3(s3Svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"]); err != nil {
+				log.Fatalln("Failed retrieving cluster info: " + err.Error())
 			}
-			kerr := pkg.DownloadFromS3(s3Svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"])
-			if kerr != nil {
-				log.Fatalln("Failed retrieving kubeadm config: " + kerr.Error())
+			if err := pkg.DownloadFromS3(s3Svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"]); err != nil {
+				log.Fatalln("Failed retrieving kubeadm config: " + err.Error())
 			}
 			joinWorker(apiDNS, apiPort)
 			return

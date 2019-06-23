@@ -1,9 +1,9 @@
 language: go
 go:
-- '1.11'
+  - '1.11'
 script:
-- make all
-- ls
+  - make all
+  - ls
 deploy:
   provider: releases
   api_key:

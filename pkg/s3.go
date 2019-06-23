@@ -189,19 +189,18 @@ func UploadMapToS3(svc s3iface.S3API, bucket string, keyPath *map[string]string)
 
 //UploadToS3 puts a file to s3
 func UploadToS3(svc s3iface.S3API, bucket string, key string, path string) error {
-	dat, err := ioutil.ReadFile(path)
-	if err != nil {
+	if dat, err := ioutil.ReadFile(path); err != nil {
 		return err
-	}
-	_, err2 := svc.PutObject(
-		&s3.PutObjectInput{
-			Body:   bytes.NewReader(dat),
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-		},
-	)
-	if err2 != nil {
-		return err
+	} else {
+		if _, err = svc.PutObject(
+			&s3.PutObjectInput{
+				Body:   bytes.NewReader(dat),
+				Bucket: aws.String(bucket),
+				Key:    aws.String(key),
+			},
+		); err != nil {
+			return err
+		}
 	}
 	return nil
 }
