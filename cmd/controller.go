@@ -120,7 +120,7 @@ func joinController(svc s3iface.S3API, apiDNS string, apiPort int, bucket string
 		apiDNS+":"+strconv.Itoa(apiPort),
 		"--config",
 		clusterConfig["kubeadm-cfg-join.yaml"],
-		"--experimental-control-plane",
+		"--control-plane",
 	)
 	joinCmd.Stdout = os.Stdout
 	if err := joinCmd.Run(); err != nil {
