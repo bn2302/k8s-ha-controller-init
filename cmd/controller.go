@@ -96,14 +96,6 @@ func createController() {
 	}
 }
 
-func installAddons(svc s3iface.S3API, bucket string) {
-	// storage class
-	// helm
-	// weave flux
-	//
-
-}
-
 func joinController(svc s3iface.S3API, apiDNS string, apiPort int, bucket string) {
 	err := os.MkdirAll("/etc/kubernetes/pki/etcd", 0777)
 	if err != nil {
@@ -171,10 +163,6 @@ func initController(svc s3iface.S3API, bucket string) {
 	err = pkg.UploadToS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
 	if err != nil {
 		log.Fatalln("Could not upload cluster info to S3 : " + err.Error())
-	}
-	err = pkg.UploadToS3(svc, bucket, "kubeconig.json", "/etc/kubernetes/admin.conf")
-	if err != nil {
-		log.Fatalln("Could not upload kube config to S3 : " + err.Error())
 	}
 }
 

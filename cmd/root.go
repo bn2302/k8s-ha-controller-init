@@ -9,7 +9,6 @@ import (
 
 var kubeAddress string
 var kubePort int
-var token string
 var bucket string
 
 var caKeys = map[string]string{

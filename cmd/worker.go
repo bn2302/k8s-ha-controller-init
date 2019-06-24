@@ -52,7 +52,7 @@ func deployWorker(apiDNS string, apiPort int) {
 				log.Fatalln("Failed retrieving cluster info: " + err.Error())
 			}
 			if err := pkg.DownloadFromS3(s3Svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"]); err != nil {
-				log.Fatalln("Failed retrieving kubeadm config: " + err.Error())
+				log.Fatalln("Failed retrieving kube-cfg-join config: " + err.Error())
 			}
 			joinWorker(apiDNS, apiPort)
 			return
