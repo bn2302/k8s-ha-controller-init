@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -15,7 +14,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -38,14 +36,6 @@ func getKubeVersion() ([]byte, error) {
 		}
 		retry++
 		time.Sleep(time.Second * 1)
-	}
-}
-
-func checkApiDNS() {
-	ips, err := net.LookupIP("google.com")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not get IPs: %v\n", err)
-		os.Exit(1)
 	}
 }
 
