@@ -101,17 +101,21 @@ func joinController(svc s3iface.S3API, apiDNS string, apiPort int, bucket string
 	if err != nil {
 		log.Fatalln("Could not create directory : " + err.Error())
 	}
-	err = pkg.DownloadMapFromS3(svc, bucket, &caKeys)
-	if err != nil {
-		log.Fatalln("Download create directory : " + err.Error())
+
+	for {
+		if err := pkg.DownloadMapFromS3(svc, bucket, &caKeys); err == nil {
+			break
+		}
 	}
-	err = pkg.DownloadFromS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"])
-	if err != nil {
-		log.Fatalln("Download cluster info failed : " + err.Error())
+	for {
+		if err := pkg.DownloadFromS3(svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"]); err == nil {
+			break
+		}
 	}
-	err = pkg.DownloadFromS3(svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"])
-	if err != nil {
-		log.Fatalln("Download kubeconfig failed : " + err.Error())
+	for {
+		if err := pkg.DownloadFromS3(svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"]); err == nil {
+			break
+		}
 	}
 
 	joinCmd := exec.Command(
