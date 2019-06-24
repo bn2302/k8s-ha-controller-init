@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+//DNSResolves checks if the domain resultion works
 func DNSResolves(apiDNS string) {
 	for {
 		_, err := net.LookupIP(apiDNS)
