@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -14,9 +13,8 @@ func DNSResolves(apiDNS string) {
 		ips, err := net.LookupIP(apiDNS)
 		if err == nil {
 			for _, ip := range ips {
-				fmt.Printf("%s. IN A %s\n", apiDNS, ip.String())
+				log.Println("%s IN A %s", apiDNS, ip.String())
 			}
-			log.Println()
 			return
 		}
 	}
