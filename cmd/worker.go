@@ -48,11 +48,15 @@ func deployWorker(apiDNS string, apiPort int) {
 	log.Println("Start deployment loop")
 	for {
 		if pkg.KubeUp(apiDNS, apiPort) {
-			if err := pkg.DownloadFromS3(s3Svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"]); err != nil {
-				log.Fatalln("Failed retrieving cluster info: " + err.Error())
+			for {
+				if err := pkg.DownloadFromS3(s3Svc, bucket, "cluster-info.yaml", clusterConfig["cluster-info.yaml"]); err == nil {
+					break
+				}
 			}
-			if err := pkg.DownloadFromS3(s3Svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"]); err != nil {
-				log.Fatalln("Failed retrieving kube-cfg-join config: " + err.Error())
+			for {
+				if err := pkg.DownloadFromS3(s3Svc, bucket, "kubeadm-cfg-join.yaml", clusterConfig["kubeadm-cfg-join.yaml"]); err == nil {
+					break
+				}
 			}
 			joinWorker(apiDNS, apiPort)
 			return
