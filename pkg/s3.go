@@ -6,10 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -97,22 +95,6 @@ func GetAutoscalingInstances(group *autoscaling.Group) []string {
 	}
 	sort.Strings(instances)
 	return instances
-}
-
-//KubeUp checks if kubernetes is running
-func KubeUp(apiDNS string, apiPort int) bool {
-	retry := 0
-	for {
-		_, err := net.Dial("tcp", apiDNS+":"+strconv.Itoa(apiPort))
-		if err == nil {
-			return true
-		}
-		if retry > 2 {
-			return false
-		}
-		retry++
-		time.Sleep(time.Millisecond * 100)
-	}
 }
 
 //ExistsOnS3 determines if the kube pki is on s3

@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -14,6 +15,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"strconv"
@@ -36,6 +38,14 @@ func getKubeVersion() ([]byte, error) {
 		}
 		retry++
 		time.Sleep(time.Second * 1)
+	}
+}
+
+func checkApiDNS() {
+	ips, err := net.LookupIP("google.com")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not get IPs: %v\n", err)
+		os.Exit(1)
 	}
 }
 
@@ -94,6 +104,14 @@ func createController() {
 	if err := ioutil.WriteFile(clusterConfig["cluster-info.yaml"], clusterInfoBuffer.Bytes(), 0644); err != nil {
 		log.Panic("Couldn't write cluster info: " + err.Error())
 	}
+}
+
+func installAddons(svc s3iface.S3API, bucket string) {
+	// storage class
+	// helm
+	// weave flux
+	//
+
 }
 
 func joinController(svc s3iface.S3API, apiDNS string, apiPort int, bucket string) {
@@ -208,6 +226,10 @@ func deployController(apiDNS string, apiPort int, bucket string) {
 		log.Println("Kubernetes is already running")
 		return
 	}
+
+	log.Println("Wait till DNS resolves")
+	pkg.DNSResolves(apiDNS)
+	log.Println("DNS resolved")
 
 	log.Println("Start deployment loop")
 	for {

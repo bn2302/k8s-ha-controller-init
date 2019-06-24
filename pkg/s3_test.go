@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -177,19 +176,5 @@ func TestWaitTillCapacitypReached(t *testing.T) {
 	err = WaitTillCapacityReached(group, 15)
 	if err != nil {
 		t.Errorf("expect no error, got %v", err)
-	}
-}
-
-func TestKubeUp(t *testing.T) {
-	if KubeUp("", 6443) {
-		t.Errorf("expect no error, tcp server should be down")
-	}
-	l, err := net.Listen("tcp", ":6443")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-	if !KubeUp("", 6443) {
-		t.Errorf("expect no error, tcp server should be up")
 	}
 }
