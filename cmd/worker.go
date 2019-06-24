@@ -42,6 +42,9 @@ func deployWorker(apiDNS string, apiPort int) {
 		log.Println("Got the region: " + region)
 	}
 	s3Svc := s3.New(sess, aws.NewConfig().WithRegion(region))
+
+	log.Println("Wait till DNS resolves")
+	pkg.DNSResolves(apiDNS)
 	log.Println("Start deployment loop")
 	for {
 		if pkg.KubeUp(apiDNS, apiPort) {

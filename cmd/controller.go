@@ -219,7 +219,6 @@ func deployController(apiDNS string, apiPort int, bucket string) {
 
 	log.Println("Wait till DNS resolves")
 	pkg.DNSResolves(apiDNS)
-	log.Println("DNS resolved")
 
 	log.Println("Start deployment loop")
 	for {
